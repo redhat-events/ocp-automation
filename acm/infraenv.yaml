@@ -1,0 +1,26 @@
+apiVersion: agent-install.openshift.io/v1beta1
+kind: InfraEnv
+metadata:
+  annotations:
+    infraenv.agent-install.openshift.io/enable-ironic-agent: 'true'
+  
+  name: homelab-nodhcp
+  namespace: homelab-nodhcp
+  labels:
+    agentclusterinstalls.extensions.hive.openshift.io/location: ...
+    networkType: static
+spec:
+  agentLabels:
+    agentclusterinstalls.extensions.hive.openshift.io/location: ...
+  
+  nmStateConfigLabelSelector:
+    matchLabels:
+      infraenvs.agent-install.openshift.io: ...
+  osImageVersion: '4.17'
+  pullSecretRef:
+    name: pullsecret-homelab-nodhcp
+  mirrorRegistryRef:
+    mirror-registry-config-map
+  additionalTrustBundle:
+    ca-trustbundle
+  sshAuthorizedKey: ssh-ed25519 ..
