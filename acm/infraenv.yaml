@@ -24,4 +24,4 @@ spec:
   additionalTrustBundle:
     ca-trustbundle
   sshAuthorizedKey: ssh-ed25519 ..
-  additionalTrustBundle: "pem ... "
+  
