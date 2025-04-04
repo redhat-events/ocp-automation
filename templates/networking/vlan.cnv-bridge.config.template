@@ -1,0 +1,69 @@
+---
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: vlan-cnv-template
+  annotations:
+    tags: "vlan,bridge,virtualization"
+    template.openshift.io/bindable: "true"
+    openshift.io/display-name: CNV Bridge VLAN for VMs
+    description: "Creates a nncp vlan and cnv bridge on the provided interface with the tagged vlan id and adds a nad to the provied namespace"
+    openshift.io/provider-display-name: Daniel Schimpfoessl
+objects:
+  - kind: NodeNetworkConfigurationPolicy
+    apiVersion: nmstate.io/v1
+    metadata:
+      name: vlan-${VLAN}-network-policy
+      annotations:
+        description: VLan ${VLAN} CNV bridge
+    spec:
+      desiredState:
+        interfaces:
+          - name: ${INTERFACE}.${VLAN}
+            type: vlan
+            state: up
+            vlan:
+              base-iface: ${INTERFACE}
+              id: ${VLAN}
+            ipv4:
+              enabled: false
+            ipv6:
+              enabled: false
+          - name: br-${INTERFACE}-${VLAN}
+            type: linux-bridge
+            state: up
+            bridge:
+              options:
+                stp:
+                  enabled: false
+              port:
+                - name: ${INTERFACE}.${VLAN}
+                  vlan: {}
+            ipv4:
+              enabled: false
+            ipv6:
+              enabled: false
+  - kind: NetworkAttachmentDefinition
+    apiVersion: k8s.cni.cncf.io/v1
+    metadata:
+      name: vlan-${VLAN}-network
+      annotations:
+        description: VM vlan ${VLAN}
+    spec:
+      config: |-
+        {
+          "name": "vlan-${VLAN}-network",
+          "bridge": "br-${INTERFACE}-${VLAN}",
+          "cniVersion": "0.3.1",
+          "type": "cnv-bridge",
+          "macspoofchk": true
+        }
+parameters:
+- name: INTERFACE
+  description: VLAN Parent Interface (bond0, eno1, ...)
+  required: true
+- name: VLAN
+  description: VLAN ID
+  required: true
+labels:
+  nmstate: vlan

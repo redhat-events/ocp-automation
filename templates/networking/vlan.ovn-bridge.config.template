@@ -1,0 +1,97 @@
+---
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: ovs-bridge-vlan-template
+  annotations:
+    tags: "vlan,bridge,virtualization"
+    template.openshift.io/bindable: "true"
+    openshift.io/display-name: OVS Bridge for VLANs for VMs
+    description: "Creates a nncp bridge for use with ovn localnet bridge-mapping and nad vlan configuration"
+    openshift.io/provider-display-name: Daniel Schimpfoessl
+objects:
+  - kind: NodeNetworkConfigurationPolicy
+    apiVersion: nmstate.io/v1
+    metadata:
+      name: br-${INTERFACE}-vlan-policy
+      annotations:
+        description: OVS Bridge for VLANs on ${INTERFACE}
+    spec:
+      desiredState:
+        interfaces:
+          - name: br-${INTERFACE}-vlan
+            description: |-
+              A dedicated OVS bridge with ${INTERFACE} as a port
+              allowing all VLANs and untagged traffic
+            type: ovs-bridge
+            state: up
+            bridge:
+              allow-extra-patch-ports: true
+              options:
+                stp: false
+              port:
+                - name: ${INTERFACE}
+            ipv4:
+              enabled: false
+            ipv6:
+              enabled: false
+parameters:
+- name: INTERFACE
+  description: VLAN Parent Interface (bond0, eno1, ...)
+  required: true
+labels:
+  nmstate: vlan
+---
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: vlan-ovs-network-template
+  annotations:
+    tags: "vlan,bridge,virtualization"
+    template.openshift.io/bindable: "true"
+    openshift.io/display-name: OVS Bridge for VLANs for VMs
+    description: "Creates a nncp vlan and ovs bridge on the provided interface with the tagged vlan id and adds a nad to the provied namespace"
+    openshift.io/provider-display-name: Daniel Schimpfoessl
+objects:
+  - kind: NodeNetworkConfigurationPolicy
+    apiVersion: nmstate.io/v1
+    metadata:
+      name: vlan-${VLAN}-network-policy
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: ''
+      desiredState:
+        ovn:
+          bridge-mappings:
+            - bridge: ${BRIDGE}
+              localnet: vlan-${VLAN}-network
+              state: present
+  - kind: NetworkAttachmentDefinition
+    apiVersion: k8s.cni.cncf.io/v1
+    metadata:
+      annotations:
+        description: Network VLAN${VLAN} on OVS Bridge ${BRIDGE}
+      name: vlan-${VLAN}-network
+      namespace: ${NAMESPACE}
+    spec:
+      config: |-
+        {
+          "cniVersion": "0.3.1",
+          "name": "vlan-${VLAN}-network",
+          "type": "ovn-k8s-cni-overlay",
+          "netAttachDefName": "${NAMESPACE}/vlan-${VLAN}-network",
+          "topology": "localnet",
+          "vlanID": ${VLAN}
+        }
+parameters:
+- name: BRIDGE
+  description: VLAN shared Bridge
+  required: true
+- name: NAMESPACE
+  description: Namespace to install NAD to
+  required: true
+- name: VLAN
+  description: VLAN ID
+  required: true
+labels:
+  nmstate: vlan
